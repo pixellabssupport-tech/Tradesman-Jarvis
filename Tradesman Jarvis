@@ -1,0 +1,20 @@
+I am building a mobile-first Progressive Web App called Tradesman Jarvis. It is a voice and text AI assistant for US tradespeople. Here is everything you need to know before we start:
+Accounts already set up:
+GitHub repo: github.com/pixellabssupport-tech/Tradesman-Jarvis
+Vercel: connected to GitHub, auto-deploys on every push
+Gemini API Key: saved in notes
+Supabase: project named tradesman-jarvis, keys saved
+Stripe: account active, keys saved
+What we are building:
+Next.js 14 app with Tailwind CSS
+Voice input via Web Speech API, text fallback
+Google Gemini as the AI brain
+Supabase for user auth and query tracking
+Stripe for subscriptions: Free (5/day), Pro ($9.99/month), Team ($24.99/month)
+Dark theme, safety orange #FF6B00, minimum 56px buttons
+PWA so users can install it on their phone
+How we work:
+Give me one file or one piece at a time
+I will tell you when each piece is done
+We go step by step, nothing gets skipped
+Are you ready? Start with the first file.

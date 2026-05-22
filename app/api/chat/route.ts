@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Gemini error:', error)
     return NextResponse.json(
-      { error: 'Jarvis is offline. Try again.' },
+      { error: `Error: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     )
   }

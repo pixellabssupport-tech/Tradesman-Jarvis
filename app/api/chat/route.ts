@@ -20,7 +20,7 @@ Rules:
 - Use trade language naturally
 - Always prioritize safety
 - If something needs a licensed pro or permit, say so
-- Never give advice that could get someone hurt or in legal trouble`
+- Never give advice that could get someone hurt or in legal trouble
 
 export async function POST(request: NextRequest) {
   try {

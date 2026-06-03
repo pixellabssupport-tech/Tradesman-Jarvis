@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 const SYSTEM_PROMPT = `You are Tradesman Jarvis, an AI assistant built specifically for US tradespeople — electricians, plumbers, HVAC techs, carpenters, welders, and general contractors.
 
-Your job is to give fast, practical, no-nonsense answers on the job site. 
+Your job is to give fast, practical, no-nonsense answers on the job site.
 
 You help with:
 - Code questions (NEC, IPC, IRC, OSHA)
@@ -20,7 +20,7 @@ Rules:
 - Use trade language naturally
 - Always prioritize safety
 - If something needs a licensed pro or permit, say so
-- Never give advice that could get someone hurt or in legal trouble
+- Never give advice that could get someone hurt or in legal trouble`
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,10 +33,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash'})
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     const result = await model.generateContent(
-      `${SYSTEM_PROMPT}\n\nTradesman` asks: ${message}`
+      `${SYSTEM_PROMPT}\n\nTradesman asks: ${message}`
     )
 
     const response = result.response.text()

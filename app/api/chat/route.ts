@@ -36,27 +36,23 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
     )
 
-    const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
-    const today = new Date().toISOString().split('T')[0]
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
 
-    const usageResult = await supabase.from('query_usage').select('*').eq('ip_address', ip).single()
-    const usage = usageResult.data
+    const { data: usage, error: usageError } = await supabase.rpc('check_and_increment_query_usage', {
+      p_ip_address: ip,
+      p_limit: FREE_LIMIT,
+    })
 
-    if (usage) {
-      const lastReset = usage.last_reset?.split('T')[0]
-      if (lastReset === today && usage.query_count >= FREE_LIMIT) {
-        return NextResponse.json(
-          { error: 'Daily limit reached. Upgrade to Pro for unlimited queries.' },
-          { status: 429 }
-        )
-      }
-      if (lastReset !== today) {
-        await supabase.from('query_usage').update({ query_count: 1, last_reset: new Date().toISOString() }).eq('ip_address', ip)
-      } else {
-        await supabase.from('query_usage').update({ query_count: usage.query_count + 1 }).eq('ip_address', ip)
-      }
-    } else {
-      await supabase.from('query_usage').insert({ ip_address: ip, query_count: 1, last_reset: new Date().toISOString() })
+    if (usageError) {
+      throw usageError
+    }
+
+    if (!usage.allowed) {
+      return NextResponse.json(
+        { error: 'Daily limit reached. Upgrade to Pro for unlimited queries.' },
+        { status: 429 }
+      )
     }
     const completion = await groq.chat.completions.create({
       messages: [

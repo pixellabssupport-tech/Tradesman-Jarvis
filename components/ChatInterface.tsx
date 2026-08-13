@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 interface Message {
   role: 'user' | 'jarvis'
   content: string
+  isUpgradePrompt?: boolean
 }
 
 export default function ChatInterface() {
@@ -23,6 +24,18 @@ export default function ChatInterface() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleUpgrade = async () => {
+    try {
+      const res = await fetch('/api/checkout', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch {
+      // silent fail — user can retry
+    }
+  }
+
   const sendMessage = async (text: string) => {
     if (!text.trim()) return
 
@@ -37,6 +50,15 @@ export default function ChatInterface() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })
       })
+
+      if (res.status === 429) {
+        setMessages(prev => [...prev, {
+          role: 'jarvis',
+          content: "You've hit your free daily limit. Upgrade to Pro for unlimited queries.",
+          isUpgradePrompt: true
+        }])
+        return
+      }
 
       const data = await res.json()
       const jarvisMessage: Message = {
@@ -99,23 +121,41 @@ export default function ChatInterface() {
         borderBottom: '1px solid #222',
         display: 'flex',
         alignItems: 'center',
-        gap: '12px'
+        justifyContent: 'space-between'
       }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          backgroundColor: '#FF6B00',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: 'bold',
-          fontSize: '18px'
-        }}>J</div>
-        <div>
-          <div style={{ fontWeight: 'bold', fontSize: '18px' }}>Tradesman Jarvis</div>
-          <div style={{ fontSize: '12px', color: '#FF6B00' }}>● Online</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#FF6B00',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold',
+            fontSize: '18px'
+          }}>J</div>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '18px' }}>Tradesman Jarvis</div>
+            <div style={{ fontSize: '12px', color: '#FF6B00' }}>● Online</div>
+          </div>
         </div>
+        <button
+          onClick={handleUpgrade}
+          style={{
+            backgroundColor: '#FF6B00',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '20px',
+            padding: '8px 18px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Upgrade ⚡
+        </button>
       </div>
 
       {/* Messages */}
@@ -132,17 +172,49 @@ export default function ChatInterface() {
             display: 'flex',
             justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'
           }}>
-            <div style={{
-              maxWidth: '80%',
-              padding: '12px 16px',
-              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-              backgroundColor: msg.role === 'user' ? '#FF6B00' : '#1a1a1a',
-              color: '#ffffff',
-              fontSize: '15px',
-              lineHeight: '1.5'
-            }}>
-              {msg.content}
-            </div>
+            {msg.isUpgradePrompt ? (
+              <div style={{
+                maxWidth: '80%',
+                padding: '16px',
+                borderRadius: '18px 18px 18px 4px',
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #FF6B00',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ fontSize: '15px', lineHeight: '1.5', color: '#ffffff' }}>
+                  {msg.content}
+                </div>
+                <button
+                  onClick={handleUpgrade}
+                  style={{
+                    backgroundColor: '#FF6B00',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '12px 20px',
+                    fontSize: '15px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Upgrade to Pro — $9.99/mo
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                maxWidth: '80%',
+                padding: '12px 16px',
+                borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                backgroundColor: msg.role === 'user' ? '#FF6B00' : '#1a1a1a',
+                color: '#ffffff',
+                fontSize: '15px',
+                lineHeight: '1.5'
+              }}>
+                {msg.content}
+              </div>
+            )}
           </div>
         ))}
 
@@ -233,4 +305,4 @@ export default function ChatInterface() {
       </div>
     </div>
   )
-      }
+}

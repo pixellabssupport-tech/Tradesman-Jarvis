@@ -210,7 +210,8 @@ export default function ChatInterface() {
                 backgroundColor: msg.role === 'user' ? '#FF6B00' : '#1a1a1a',
                 color: '#ffffff',
                 fontSize: '15px',
-                lineHeight: '1.5'
+                                lineHeight: '1.5',
+                whiteSpace: 'pre-wrap'
               }}>
                 {msg.content}
               </div>

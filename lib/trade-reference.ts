@@ -109,7 +109,7 @@ TRAP-TO-VENT DISTANCE (IPC Table 909.1)
 - 2 in trap: 8 ft max (1/4 in/ft)
 - 3 in trap: 12 ft max (1/8 in/ft)
 - 4 in trap: 16 ft max (1/8 in/ft)
-The trap weir to vent fall must not exceed one pipe diameter.
+Trap arm fall (IPC 909.2): the total fall of the trap arm from the trap weir to the vent fitting must not exceed one pipe diameter, so the vent opening is never below the trap weir. (Example: a 1-1/2 in arm may drop no more than 1-1/2 in over its whole length.) This limits slope over long arms; it does not mean the vent must be physically close to the trap.
 
 TRAPS
 - Trap seal: 2 in minimum, 4 in maximum (larger allowed only where special conditions require it)

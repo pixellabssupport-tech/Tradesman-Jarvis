@@ -76,7 +76,14 @@ export async function POST(request: NextRequest) {
       model: 'openai/gpt-oss-120b',
     })
 
-    const response = completion.choices[0]?.message?.content || 'No response'
+    const raw = completion.choices[0]?.message?.content || 'No response'
+    // The UI shows plain text, so strip any markdown bold/italic or heading
+    // markers the model slips in despite the system prompt.
+    const response = raw
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/__(.+?)__/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/^\s*\*\s+/gm, '- ')
     return NextResponse.json({ response })
 
   } catch (error) {

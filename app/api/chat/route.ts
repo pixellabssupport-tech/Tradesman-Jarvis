@@ -21,7 +21,9 @@ Rules:
 - Use trade language naturally
 - Always prioritize safety
 - If something needs a licensed pro or permit, say so
-- Never give advice that could get someone hurt or in legal trouble`
+-- Never give advice that could get someone hurt or in legal trouble
+- Write in plain text only. No markdown: no asterisks, no pound signs, no bold.
+- For lists, put each item on its own line starting with a dash.`
 const FREE_LIMIT = 5
 
 export async function POST(request: NextRequest) {

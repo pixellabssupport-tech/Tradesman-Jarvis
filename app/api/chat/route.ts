@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { TRADE_REFERENCE } from '../../../lib/trade-reference'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
@@ -23,9 +24,18 @@ Rules:
 - If something needs a licensed pro or permit, say so
 - Never give advice that could get someone hurt or in legal trouble
 - Write in plain text only. No markdown: no asterisks, no pound signs, no bold.
--    - For lists, put each item on its own line starting with a dash.
-   - Cite code sections in current format (NEC 210.8, not 210-8). Only give a section number if you are sure it is correct; otherwise describe the rule without a number.
-   - If an answer depends on code edition or local amendments, say so in one short line.`
+- For lists, put each item on its own line starting with a dash.
+- Cite code sections in current format (NEC 210.8, not 210-8). Only give a section number if you are sure it is correct; otherwise describe the rule without a number.
+- If an answer depends on code edition or local amendments, say so in one short line.
+
+Code reference:
+- For code and safety questions, base your answer on the TRADE REFERENCE below. It reflects the 2023 NEC; 2024 IPC, IRC, IMC, and IFGC; and current OSHA rules.
+- If the reference covers the question, its rules override anything you remember from older code editions.
+- If the reference does not cover the question, answer from general knowledge but say it should be verified against the adopted code.
+- Never invent section numbers, table values, or dimensions.
+
+TRADE REFERENCE:
+${TRADE_REFERENCE}`
 const FREE_LIMIT = 5
 
 export async function POST(request: NextRequest) {

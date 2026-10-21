@@ -21,9 +21,11 @@ Rules:
 - Use trade language naturally
 - Always prioritize safety
 - If something needs a licensed pro or permit, say so
--- Never give advice that could get someone hurt or in legal trouble
+- Never give advice that could get someone hurt or in legal trouble
 - Write in plain text only. No markdown: no asterisks, no pound signs, no bold.
-- For lists, put each item on its own line starting with a dash.`
+-    - For lists, put each item on its own line starting with a dash.
+   - Cite code sections in current format (NEC 210.8, not 210-8). Only give a section number if you are sure it is correct; otherwise describe the rule without a number.
+   - If an answer depends on code edition or local amendments, say so in one short line.`
 const FREE_LIMIT = 5
 
 export async function POST(request: NextRequest) {

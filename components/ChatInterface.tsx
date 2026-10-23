@@ -8,6 +8,46 @@ interface Message {
   isUpgradePrompt?: boolean
 }
 
+interface Me {
+  signedIn: boolean
+  email: string | null
+  isPro: boolean
+}
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  backgroundColor: '#0a0a0a',
+  color: '#ffffff',
+  border: '1px solid #333',
+  borderRadius: '12px',
+  padding: '14px 16px',
+  fontSize: '16px',
+  outline: 'none',
+}
+
+const primaryButton: React.CSSProperties = {
+  width: '100%',
+  backgroundColor: '#FF6B00',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '12px',
+  padding: '14px 20px',
+  fontSize: '16px',
+  fontWeight: 'bold',
+  cursor: 'pointer',
+}
+
+const textButton: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#aaaaaa',
+  fontSize: '13px',
+  cursor: 'pointer',
+  padding: '6px 4px',
+  whiteSpace: 'nowrap',
+}
+
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -20,20 +60,162 @@ export default function ChatInterface() {
   const [listening, setListening] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Account state
+  const [me, setMe] = useState<Me>({ signedIn: false, email: null, isPro: false })
+  const [authOpen, setAuthOpen] = useState(false)
+  const [authStep, setAuthStep] = useState<'email' | 'code'>('email')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authCode, setAuthCode] = useState('')
+  const [authNote, setAuthNote] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const upgradeAfterSignIn = useRef(false)
+
+  const addJarvis = (content: string) =>
+    setMessages(prev => [...prev, { role: 'jarvis', content }])
+
+  const loadMe = async (): Promise<Me> => {
+    try {
+      const res = await fetch('/api/me', { cache: 'no-store' })
+      const data: Me = await res.json()
+      setMe(data)
+      return data
+    } catch {
+      return me
+    }
+  }
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleUpgrade = async () => {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const cleanUrl = () => window.history.replaceState(null, '', window.location.pathname)
+
+    if (params.get('upgrade') === 'success') {
+      cleanUrl()
+      addJarvis('Payment received. Turning on Pro...')
+      // The Stripe webhook can take a few seconds, so check a few times.
+      let tries = 0
+      const check = async () => {
+        const data = await loadMe()
+        if (data.isPro) {
+          addJarvis("You're on Pro. Ask as many questions as you want.")
+        } else if (++tries < 10) {
+          setTimeout(check, 2000)
+        } else {
+          addJarvis('Your payment went through, but Pro is taking longer than usual to turn on. Refresh in a minute. If it still says Upgrade, contact support.')
+        }
+      }
+      check()
+      return
+    }
+    if (params.get('signedin') === '1') {
+      cleanUrl()
+      loadMe().then(data => {
+        addJarvis(data.isPro ? "Signed in. You're on Pro." : `Signed in as ${data.email}.`)
+      })
+      return
+    }
+    if (params.get('auth_error') === '1') {
+      cleanUrl()
+      addJarvis('That sign-in link expired or was opened in a different browser. Tap Sign in and use the code from the email instead.')
+    }
+    loadMe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const openSignIn = (note = '') => {
+    setAuthStep('email')
+    setAuthCode('')
+    setAuthError('')
+    setAuthNote(note)
+    setAuthOpen(true)
+  }
+
+  const sendCode = async () => {
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAuthError(data.error || 'Could not send the email.')
+      } else {
+        setAuthStep('code')
+      }
+    } catch {
+      setAuthError('Connection error. Try again.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const verifyCode = async () => {
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, token: authCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAuthError(data.error || 'That code did not work.')
+        return
+      }
+      setAuthOpen(false)
+      const fresh = await loadMe()
+      addJarvis(fresh.isPro ? "Signed in. You're on Pro." : `Signed in as ${fresh.email}.`)
+      if (upgradeAfterSignIn.current && !fresh.isPro) {
+        upgradeAfterSignIn.current = false
+        startCheckout()
+      }
+    } catch {
+      setAuthError('Connection error. Try again.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  const signOut = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    setMe({ signedIn: false, email: null, isPro: false })
+    addJarvis('Signed out.')
+  }
+
+  const startCheckout = async () => {
     try {
       const res = await fetch('/api/checkout', { method: 'POST' })
       const data = await res.json()
+      if (data.needLogin) {
+        upgradeAfterSignIn.current = true
+        openSignIn('Sign in first so Pro stays with your account on any device.')
+        return
+      }
       if (data.url) {
         window.location.href = data.url
+        return
       }
+      addJarvis(data.error || 'Could not start checkout. Try again.')
     } catch {
-      // silent fail — user can retry
+      addJarvis('Connection error. Check your signal and try again.')
     }
+  }
+
+  const handleUpgrade = () => {
+    if (!me.signedIn) {
+      upgradeAfterSignIn.current = true
+      openSignIn('Sign in first so Pro stays with your account on any device.')
+      return
+    }
+    startCheckout()
   }
 
   const sendMessage = async (text: string) => {
@@ -123,8 +305,9 @@ export default function ChatInterface() {
         alignItems: 'center',
         justifyContent: 'space-between'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <div style={{
+            flexShrink: 0,
             width: '40px',
             height: '40px',
             borderRadius: '50%',
@@ -135,28 +318,149 @@ export default function ChatInterface() {
             fontWeight: 'bold',
             fontSize: '18px'
           }}>J</div>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: '18px' }}>Tradesman Jarvis</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 'bold', fontSize: '18px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Tradesman Jarvis</div>
             <div style={{ fontSize: '12px', color: '#FF6B00' }}>● Online</div>
           </div>
         </div>
-        <button
-          onClick={handleUpgrade}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {me.signedIn ? (
+            <button onClick={signOut} style={textButton} title={me.email ?? undefined}>
+              Sign out
+            </button>
+          ) : (
+            <button onClick={() => openSignIn()} style={textButton}>
+              Sign in
+            </button>
+          )}
+          {me.isPro ? (
+            <div style={{
+              border: '1px solid #FF6B00',
+              color: '#FF6B00',
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              whiteSpace: 'nowrap'
+            }}>
+              PRO ⚡
+            </div>
+          ) : (
+            <button
+              onClick={handleUpgrade}
+              style={{
+                backgroundColor: '#FF6B00',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '20px',
+                padding: '8px 16px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Upgrade ⚡
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Sign-in dialog */}
+      {authOpen && (
+        <div
+          onClick={() => !authBusy && setAuthOpen(false)}
           style={{
-            backgroundColor: '#FF6B00',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '20px',
-            padding: '8px 18px',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap'
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            zIndex: 50
           }}
         >
-          Upgrade ⚡
-        </button>
-      </div>
+          <div
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-label="Sign in"
+            style={{
+              width: '100%',
+              maxWidth: '380px',
+              backgroundColor: '#1a1a1a',
+              border: '1px solid #333',
+              borderRadius: '18px',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px'
+            }}
+          >
+            <div style={{ fontSize: '20px', fontWeight: 'bold' }}>Sign in</div>
+            {authNote && <div style={{ fontSize: '14px', color: '#FF6B00' }}>{authNote}</div>}
+
+            {authStep === 'email' ? (
+              <>
+                <div style={{ fontSize: '14px', color: '#bbbbbb', lineHeight: 1.5 }}>
+                  Enter your email and we'll send you a sign-in code. No password needed.
+                </div>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && authEmail.trim()) sendCode() }}
+                  style={fieldStyle}
+                  autoFocus
+                />
+                <button
+                  onClick={sendCode}
+                  disabled={authBusy || !authEmail.trim()}
+                  style={{ ...primaryButton, opacity: authBusy || !authEmail.trim() ? 0.5 : 1 }}
+                >
+                  {authBusy ? 'Sending...' : 'Send code'}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '14px', color: '#bbbbbb', lineHeight: 1.5 }}>
+                  We sent an email to <span style={{ color: '#ffffff' }}>{authEmail}</span>.
+                  Enter the code from it, or tap the link in the email.
+                </div>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="Code"
+                  value={authCode}
+                  onChange={e => setAuthCode(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={e => { if (e.key === 'Enter' && authCode) verifyCode() }}
+                  style={{ ...fieldStyle, letterSpacing: '4px', textAlign: 'center', fontSize: '20px' }}
+                  autoFocus
+                />
+                <button
+                  onClick={verifyCode}
+                  disabled={authBusy || authCode.length < 6}
+                  style={{ ...primaryButton, opacity: authBusy || authCode.length < 6 ? 0.5 : 1 }}
+                >
+                  {authBusy ? 'Checking...' : 'Sign in'}
+                </button>
+                <button onClick={() => setAuthStep('email')} style={textButton}>
+                  Use a different email or resend
+                </button>
+              </>
+            )}
+
+            {authError && <div style={{ fontSize: '14px', color: '#ff6b6b' }}>{authError}</div>}
+
+            <button onClick={() => setAuthOpen(false)} disabled={authBusy} style={textButton}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div style={{

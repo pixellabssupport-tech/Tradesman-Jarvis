@@ -2,6 +2,7 @@ import Groq from 'groq-sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { TRADE_REFERENCE } from '../../../lib/trade-reference'
+import { getCurrentUser } from '@/lib/supabase-server'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
@@ -50,23 +51,37 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
     )
 
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-
-    const { data: usage, error: usageError } = await supabase.rpc('check_and_increment_query_usage', {
-      p_ip_address: ip,
-      p_limit: FREE_LIMIT,
-    })
-
-    if (usageError) {
-      throw usageError
+    // Signed-in Pro users skip the free daily limit.
+    let isPro = false
+    const user = await getCurrentUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_pro')
+        .eq('id', user.id)
+        .maybeSingle()
+      isPro = profile?.is_pro === true
     }
 
-    if (!usage.allowed) {
-      return NextResponse.json(
-        { error: 'Daily limit reached. Upgrade to Pro for unlimited queries.' },
-        { status: 429 }
-      )
+    if (!isPro) {
+      const forwardedFor = request.headers.get('x-forwarded-for')
+      const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
+
+      const { data: usage, error: usageError } = await supabase.rpc('check_and_increment_query_usage', {
+        p_ip_address: ip,
+        p_limit: FREE_LIMIT,
+      })
+
+      if (usageError) {
+        throw usageError
+      }
+
+      if (!usage.allowed) {
+        return NextResponse.json(
+          { error: 'Daily limit reached. Upgrade to Pro for unlimited queries.' },
+          { status: 429 }
+        )
+      }
     }
     const completion = await groq.chat.completions.create({
       messages: [
